@@ -1,0 +1,1419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>
+/* v13b: Telegram's Mini App script loads ONLY inside a Mini App (launch hash has tgWebAppData).
+   In a Telegram *game* (group /play) Telegram Android opens its Share sheet for every event that
+   script sends (ready, expand, theme, viewport...), which buried the game and ate the controls. */
+(function () {
+  var mini = false;
+  try { mini = /tgWebAppData=/.test(location.hash) || /tgWebAppData/.test(sessionStorage.getItem("__telegram__initParams") || ""); } catch (_) {}
+  if (!mini) return;
+  var s = document.createElement("script");
+  s.src = "https://telegram.org/js/telegram-web-app.js";
+  s.onload = function () {
+    try { var w = window.Telegram && Telegram.WebApp; if (w) { w.ready(); w.expand(); if (w.disableVerticalSwipes) w.disableVerticalSwipes(); } } catch (_) {}
+  };
+  document.head.appendChild(s);
+})();
+</script>
+<script src="../verse-board.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0000ff">
+<title>WAGBi STACKER - ON BASE</title>
+<style>
+html,body{margin:0;height:100%;background:#02031a;overflow:hidden;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-text-size-adjust:100%}
+body{display:flex;align-items:center;justify-content:center}
+#c{display:block;image-rendering:pixelated;image-rendering:crisp-edges;background:#000;outline:none;touch-action:manipulation}
+.pad{position:fixed;bottom:calc(20px + max(14px,env(safe-area-inset-bottom)));display:none;z-index:5}
+#pr{right:max(14px,env(safe-area-inset-right))}
+body.touch .pad{display:flex}
+@media (hover:hover) and (pointer:fine){body.touch .pad{display:none}}
+.btn{width:92px;height:92px;border-radius:50%;border:3px solid rgba(255,255,255,.75);background:rgba(0,0,255,.45);color:#fff;
+ font:bold 16px/86px monospace;text-align:center;box-shadow:0 3px 0 rgba(0,0,60,.6);touch-action:manipulation}
+.btn.on{background:rgba(80,120,255,.75);transform:translateY(2px)}
+#bm{position:fixed;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));display:none;z-index:5;
+ font:bold 10px monospace;color:#cfd8ff;background:rgba(0,0,80,.5);border:2px solid rgba(255,255,255,.4);border-radius:6px;padding:4px 6px;touch-action:manipulation}
+body.touch #bm{display:block}
+#wlb{position:fixed;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));z-index:6;
+ font:bold 12px/1 monospace;color:#fff;background:rgba(0,0,255,.72);border:2px solid #fff;border-radius:6px;padding:8px 10px;cursor:pointer;touch-action:manipulation}
+#wboard{position:fixed;z-index:7;left:50%;top:50%;transform:translate(-50%,-50%);
+ width:min(420px,calc(100% - 12px));max-height:calc(100% - 12px);overflow:auto;box-sizing:border-box;
+ background:#0000ff;color:#fff;border:2px solid #fff;padding:4px;box-shadow:4px 4px 0 #000022;
+ image-rendering:pixelated}
+#wboard[hidden]{display:none}
+#wboard .in{position:relative;background:#07071c;padding:8px 8px 6px}
+#wboard-x{position:absolute;top:4px;right:4px;z-index:1;width:22px;height:22px;padding:0;
+ background:#0000ff;color:#fff;border:2px solid #fff;font:700 14px/16px ui-monospace,monospace;
+ cursor:pointer;touch-action:manipulation}
+#wboard-title{min-height:8px;margin:0 28px 6px 0}
+#wboard-tabs{display:flex;gap:4px;margin:0 0 6px}
+#wboard-tabs button{flex:1;display:flex;justify-content:center;align-items:center;
+ background:#000a60;border:2px solid #2a4cff;padding:4px 0;cursor:pointer;touch-action:manipulation}
+#wboard-tabs button.on{background:#0000ff;border-color:#fff}
+#wboard-rows{display:flex;flex-direction:column;gap:3px}
+.wr{display:flex;align-items:center;gap:4px;padding:1px 2px}
+.wr.me{background:#0000ff;box-shadow:inset 0 0 0 2px #ffe14a}
+.nm{flex:1;min-width:0;overflow:hidden}
+.sc{margin-left:auto;flex:none}
+#wboard-empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 4px 12px}
+#wboard-empty[hidden]{display:none}
+#wboard-you{display:flex;justify-content:space-between;align-items:center;gap:8px;
+ margin-top:6px;padding:4px 6px;background:#0000ff}
+#wboard-you[hidden]{display:none}
+#wboard-status{display:flex;justify-content:center;margin-top:6px}
+#wboard-status[hidden]{display:none}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+#wboard canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+</style>
+</head>
+<body>
+<canvas id="c" width="320" height="180" tabindex="0" aria-label="WAGBi Stacker. Drop the Base mark. Overhang is sliced. Miss the block and the site closes."></canvas>
+<div class="pad" id="pr"><div class="btn" id="bd" aria-label="drop">DROP</div></div>
+<div id="bm" aria-label="Sound on">SOUND ON</div>
+<button type="button" id="wlb">BOARD</button>
+<section id="wboard" hidden role="dialog" aria-label="WAGBi Stacker leaderboard">
+  <div class="in">
+    <button type="button" id="wboard-x" aria-label="Close">X</button>
+    <div id="wboard-title"></div>
+    <div id="wboard-tabs" role="tablist">
+      <button type="button" id="wboard-tab-all" role="tab" class="on" aria-label="All time">ALL TIME</button>
+      <button type="button" id="wboard-tab-week" role="tab" aria-label="This week">WEEK</button>
+    </div>
+    <div id="wboard-rows"></div>
+    <div id="wboard-empty" hidden>NO SCORES YET</div>
+    <div id="wboard-you" hidden></div>
+    <div id="wboard-status" hidden></div>
+  </div>
+</section>
+<script>window.WAGBI_ASSETS={"base": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAoElEQVR4nO2XSwqAMAxEU/G87Q1c9Ab2wnGhwvSLYmw2GSgUspjXzKbjaCjP4/lTJdebrCNTH3cZ+43gITlMQeYZTdMm4k8+IkyoIMCcmejfc3pU0c4xb0EsMkt+J4xWBaDQ3PWXMaht4I5BPQIDMAADMAADMAADUAe4pPErUvyUotQBQDNj6HbOGRC5eaOj5eVUph8GuA/LaR/mm/r1/ADzNHQ6YvSN+AAAAABJRU5ErkJggg==", "doji": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB8AAAAbCAYAAACEP1QvAAAF2klEQVR4nJWWa2xU1xHHf3N3beLHutj7YLv2EkIWqw4mEgLJSdQ2dnDqgJ2kMmqMStNGSdSiVqWCIqp+qFS1Cn2Q0FBVrVpRKkRowMhJoE7SSCjdVmqkbRqlvExsFkjjF971Gr92/cB7px/We3PXD2qPdHXPzJ07/5n/OWfOkSdXfwaAzpHbXBudIC3C1oqVnLz4sZ75y1kAfrD7p3x0432y+gMPPMiHv9shFcEA/T19BILl9HX3MpEY4/Q/JqkKlNPZ10vsEQ/xnkG8qz3EPxnEe7eH828ncfnuAxGcCsjso0ABJgZpdlSvlv6xCcpdK4DP6ufv9ssaVz7TAj8emeLnz1ezVBFRVBQFMKcwSSJSjDProBk36isKUeDjsdtsKtqgj//iYdq2fg5An6/+PTX+deAFg+uSSXkJogbPlGxGbqHFjgIuXbtBOlQthi0/XIaJqfk0eLfppqIqffzgwzyZAQbgyKVvEbl5FYD+8Fo1dYLbKmh6hhkMpoBCcwJDlYIZE0mZmGqi0yYodEUT1Nb4qC7xkTbH1SkioEqeOKgLetjiflSXSud/XinTD+VfUrthkr+f/4S0QOGkYigUTCeZ6ZlhKD4OE/CbRJTvrq8HoLbGB5EY0nb4JxgCbW+9S+OjWxj6c4dGbl5lbtV2segH3LVR8VRUMNjbw/jQGO3hCdYEyrl6s5/RzW4Ghwbx+N0k+gcpC/honFytXdEEfYk0zgMHX0ExUREejHcsueqsvHVS9SKXBVEEQVhB938HUAz0n7coQEheGeEucTDZMUyXv4jKkJu+RAzZU98AgIrBUEdcO9ftXBDk2kev5+jbHClq/OuI3LxK6X1uMZaQtingLytWgHAkhnj8X1x2tdscqRzdW+0R0nPCZDeCfqo7RCgtLbLAnce/6RNHvsEHF9P6w1Nt7D37CN4TpQuCxnfe4tAT71LVsh3IrN6RQhdf+0IRM1NplE8TyMt3gsDM9AyqkLfCCQivvt5v+TiNPAcvHenTgNvBz1q2c3/VvVzgGs179wHw2qEXLectVZvxtmQSC0diGWNimJeODCvA958LSBZeUVDIc+ZhiglpBx90TGplyE04EmPPcwGR9h9tR8XgUqepXdEElSE3zXv3cftEnLyd3nkJdEUTAFSG3Jbt1JXogkwBHPjyOjnfqVbscCTGd572ixMT51S+kz/8MVN5NuDulv3sefnr/KrlIAC/PvVLXjv0ItkAOZUDqygBYKBkdB74+U7VbLLhSIxdz/jFdBhMYyD1uzbiQAm8v9JyAiza7ZVnq7b7hSMx/j1yGYBgMJgD3N3dzRNr77eA0w0pcSikxQRALpz4Ksg0JsLbZ8xlrfxwJMam1ACuug10RROcvX7B+hYMBi3wvkSagwcCgr2bA7Jx10ZLUTVoGV7zfxMY+9tF6ssqODfUg6tug8VKlo1sIvu+VEe2mw08Ni5zjyGnXRExaS2NylNnkndM4HtP7eBwa+uiwJUhN/tCdbk/Zc9um+TyAKAGq1YU8+z2HTlv+/jN9nYL+E5iT2ohcc41qEBjUxMl3/4GjcDlc+/R2NQEYNkOt7bisv1jB1hsvNDRPw9cUI7Gr/Dsb49x+dx7rK9/iDfb21lzVxnrZ5NZStV2qa3x0UoKMHPs82lHCUdiDD/dCGSqBVhf/xBH205SfuyFZQFDhn7fXwvnraN54KIG8YZx2d2yn/JjL/Dylq00NjVxtO0kzW8czwlof98JeLF5X3DObecDzW8cZxhonmUi23AqQ25rG1WGlg+8IDgAkpmn3S37532qrfFZ475EGshttXOlLxEj4HYsA3xWAm5HpkE0pMQQk6/cWqv2g8XeOBRAlVXvuCze4g0p8b5TqNmby1xZYMFl5PTK65KlTDBJY3K6NGOrDLlpLb0ualu9mbu/g3jDqG1TmQw8NiqLMZPb4VQY70la0f5Eh9yDR5O9qdnvQHGG5mR1ksXu7ePVk3LPJZ+O9aYQ4MasnuzJbDdTwFXu4n898ZSxOYaJ1gAAAABJRU5ErkJggg==", "font": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAvgAAAAICAYAAACML4vTAAAD/UlEQVR42u1cya6kMAykpP7/X/acRmoxSVzlJUAPOfEeIcSOl/JCw8wOcnxPxOQeTtfs/e95WLwbk7mrva3WOIR3Mc8+adiExggPR0IE5763DhLPMs+v5qj0VZ+Lur6R56acD0j97zgfZv2zPTmCNDL6ztIYsYfe+UXsqQk8tgTvKp731sjSf75GwflYgfzB8XmM7rD+OeoTuuxV55oqH6x4rqLb1ef3C5jk1+lXbX2KL5+NBI2usZhzNoDes3/n2JEzcCNGemsrAcwdBNicYMlIkLsCIN9rQBBixllG+ApHJkHI17HgEQuys3SsgJB6bnBkWtGxFX9GOn1ew5M/NMsHs3aF/kbXMAdQqsmRGf/P93c8j5vZx4hsRO0YCJ8FQpcrfCCOnP/8dYCIojmRZMU7/t8AJqzXOwC+lzExwriYmPHoYL4HbuwhDsqIzNLMgauZ3kiE6jkxFXRB2ANuqPxshtAzAl7G1MvQI2hsbLLXcmP2gKxQdi8m6vZTQPHVe/ECksj5ILAHFPATDWcTsftKlc8Ccr9aP1KBU6q4SJ5/pGqg8q67ArfCcMw72POrqrBFK3js/Svt3FTuPkUGIGNgzuB4BChWDowF19jAXNbAqE7EimiyjXxYGUgvQ844HCZQYcGmEfczFYaMwUdQlyAGONkskjXrm9pGpTrh7uxZRRXBnEDbjuuzgEbuq0M+ovLr+ZARDREA2AnydwZk2QqOpxdMhZWtABmp60yFysgzrLYDI1B6dQWOxRdKdf2KZEw2wGfbnKvs/6z7wgZ/43MzA2IEIV6EZpuNJfMdQFaAqzKZV4F7xsBYcr/RFpqRXK2CTDaoU0G82mKjGhElA2XEGav8rwYZUR1hKlGdILlTD7sDNCOfByGnVXzARG4RkG2mStsB7u8O8u3dQ+n+f7XH3PNtx015UNGBYQIfMuvPbOsI5EsZ/IqyshEZF6YnmsliVfc5sb310fdXle+Vj5fZjEBGsLMtNDujeqZk3LWfqnOIVrCU+5aka+d3KtUtP9H9Dg1wQ6CfyWIra4Okb4f+ggRQjL+JtqBV0Xg3kG9J/d8V4LPg7Wrwa8czgjgU8q8zwJ/tMfojFaPqkEf/XYK3f979SSq6anxx6C043v9mB1AJ8hXwhAYjlVVciAriZZHZeSiI4L3nq9ZXAK3aSqOCQDtqf0VnZYTYbyuiDoI1wGygWClDUdosKN8eyO/IcnXo3wyEjujr1n92T9gAoKNtgh7IvxKceroTtc+e/lTJL+OnMvpfkXCoXD+jPx38y7YXKy2yXout9w3oCuTPaDLBj3X69zFThJ/JfMfeLMk73vGOd7zjHZVBR3UA+VQeoHF9PJA3WwDnKz97xx9wgU8v1V3pPAAAAABJRU5ErkJggg=="};</script>
+<script>
+/* WAGBi STACKER — ON BASE. 320x180 timing stacker.
+   Drop the Base mark. Overhang is sliced. Miss the block and the site closes.
+   Cat sprite is assets/doji.png, drawn 1:1 nearest-neighbor, mirrored horizontally so he faces the load. Never redrawn.
+   Stacked blocks are the Base square from wagbi-build/make_wagbi.py (crane_load), assets/base.png, nearest-neighbor. */
+(() => {
+'use strict';
+const W = 320, H = 180;
+const BH = 16, GAP = 22, STACK_SCREEN = 92;
+const START_W = 16, PAD_W = 46, PAD_H = 12;
+const GANTRY_Y = 30, PERFECT_TOL = 2;
+const BEST_KEY = 'wagbiStacker.best';
+const A = window.WAGBI_ASSETS || {};
+const QS = new URLSearchParams(location.search);
+const SHOT = QS.get('shot');
+
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d', { alpha: false });
+ctx.imageSmoothingEnabled = false;
+
+const img = {};
+function loadAll(cb) {
+  const keys = Object.keys(A);
+  let left = keys.length;
+  if (!left) { cb(); return; }
+  keys.forEach(k => {
+    const i = new Image();
+    i.onload = () => { if (--left === 0) cb(); };
+    i.onerror = () => { if (--left === 0) cb(); };
+    i.src = A[k];
+    img[k] = i;
+  });
+}
+
+const tintCache = {};
+function fontFor(col) {
+  if (tintCache[col]) return tintCache[col];
+  const c = document.createElement('canvas');
+  c.width = img.font.width; c.height = 8;
+  const x = c.getContext('2d');
+  x.imageSmoothingEnabled = false;
+  x.drawImage(img.font, 0, 0);
+  x.globalCompositeOperation = 'source-in';
+  x.fillStyle = col;
+  x.fillRect(0, 0, c.width, 8);
+  return (tintCache[col] = c);
+}
+function text(s, x, y, col, shadow, align, scale) {
+  if (!img.font) return;
+  s = String(s);
+  scale = scale || 1;
+  const cw = 8 * scale;
+  if (align === 'center') x = Math.round(x - s.length * cw / 2);
+  else if (align === 'right') x = Math.round(x - s.length * cw);
+  else x = Math.round(x);
+  y = Math.round(y);
+  const sh = shadow ? Math.max(1, scale) : 0;
+  const draw = (f, ox, oy) => {
+    for (let i = 0; i < s.length; i++) {
+      const k = s.charCodeAt(i) - 32;
+      if (k > 0 && k < 95) ctx.drawImage(f, k * 8, 0, 8, 8, x + i * cw + ox, y + oy, cw, 8 * scale);
+    }
+  };
+  if (shadow) draw(fontFor(shadow), sh, sh);
+  draw(fontFor(col), 0, 0);
+}
+function px(x, y, w, h, c) {
+  if (w <= 0 || h <= 0) return;
+  ctx.fillStyle = c;
+  ctx.fillRect(x | 0, y | 0, w | 0, h | 0);
+}
+function fillRound(x, y, w, h, r, col) {
+  x |= 0; y |= 0; w |= 0; h |= 0;
+  if (w <= 0 || h <= 0) return;
+  r = Math.max(0, Math.min(r | 0, (w / 2) | 0, (h / 2) | 0));
+  ctx.fillStyle = col;
+  if (r <= 1) { ctx.fillRect(x + (r ? 1 : 0), y, w - (r ? 2 : 0), h); ctx.fillRect(x, y + (r ? 1 : 0), w, h - (r ? 2 : 0)); return; }
+  ctx.fillRect(x + r, y, w - 2 * r, h);
+  ctx.fillRect(x, y + r, w, h - 2 * r);
+  for (let i = 0; i < r; i++) {
+    const dy = r - i - 0.5;
+    const span = r - Math.ceil(r - Math.sqrt(Math.max(0, r * r - dy * dy)));
+    if (span <= 0) continue;
+    ctx.fillRect(x + (r - span), y + i, span, 1);
+    ctx.fillRect(x + w - r, y + i, span, 1);
+    ctx.fillRect(x + (r - span), y + h - 1 - i, span, 1);
+    ctx.fillRect(x + w - r, y + h - 1 - i, span, 1);
+  }
+}
+
+let seed = 0x57A6B1;
+function rnd() {
+  seed = (seed + 0x6D2B79F5) | 0;
+  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+let actx = null, muted = false, master = null, musicT = 0, stepN = 0, musicOn = false, noiseBuf = null;
+const MASTER_VOL = 0.42;
+function initAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  if (!actx) {
+    try {
+      actx = new AC();
+      master = actx.createGain();
+      master.gain.value = muted ? 0 : MASTER_VOL;
+      master.connect(actx.destination);
+      const b = actx.createBuffer(1, 1, actx.sampleRate || 22050);
+      const src = actx.createBufferSource();
+      src.buffer = b; src.connect(master); src.start(0);
+    } catch (e) { actx = null; return null; }
+  }
+  if (actx.state === 'suspended' || actx.state === 'interrupted') {
+    const r = actx.resume();
+    if (r && r.catch) r.catch(() => {});
+  }
+  if (master) master.gain.value = muted ? 0 : MASTER_VOL;
+  return actx;
+}
+function tone(freq, when, dur, type, vol) {
+  if (!actx || muted || !master || dur <= 0) return;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(Math.max(30, freq), when);
+  g.gain.setValueAtTime(Math.max(0.0001, vol), when);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+  o.connect(g); g.connect(master);
+  o.start(when); o.stop(when + dur + 0.02);
+}
+function noiseBuffer() {
+  if (noiseBuf || !actx) return noiseBuf;
+  const len = Math.floor(actx.sampleRate * 0.35);
+  const buf = actx.createBuffer(1, len, actx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  return (noiseBuf = buf);
+}
+function noise(when, dur, vol, hp) {
+  if (!actx || muted || !master || dur <= 0) return;
+  const src = actx.createBufferSource();
+  src.buffer = noiseBuffer();
+  const f = actx.createBiquadFilter();
+  f.type = hp > 2000 ? 'highpass' : 'lowpass';
+  f.frequency.setValueAtTime(hp, when);
+  const g = actx.createGain();
+  g.gain.setValueAtTime(vol, when);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+  src.connect(f); f.connect(g); g.connect(master);
+  src.start(when); src.stop(when + dur + 0.02);
+}
+function kick(t) {
+  if (!actx || muted || !master) return;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(170, t);
+  o.frequency.exponentialRampToValueAtTime(48, t + 0.12);
+  g.gain.setValueAtTime(0.9, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+  o.connect(g); g.connect(master);
+  o.start(t); o.stop(t + 0.18);
+}
+function musicTick() {
+  if (!actx) return;
+  if (master) master.gain.value = muted ? 0 : MASTER_VOL;
+  if (muted || actx.state !== 'running') { musicOn = false; return; }
+  const step = 60 / 104 / 4;
+  if (!musicOn) { musicOn = true; musicT = actx.currentTime + 0.05; stepN = 0; }
+  if (musicT < actx.currentTime - 0.15) musicT = actx.currentTime;
+  const bass = [55, 55, 82.4, 73.4, 49, 55, 65.4, 73.4];
+  let n = 0;
+  while (musicT < actx.currentTime + 0.25 && n < 8) {
+    const i = stepN % 16, t = musicT;
+    if (i % 4 === 0) kick(t);
+    if (i % 2 === 0) noise(t, 0.04, 0.18, 7000);
+    if (i % 4 === 2) noise(t, 0.03, 0.1, 4000);
+    if (i % 4 === 0) tone(bass[(i >> 2) % 8], t, step * 3.2, 'square', 0.16);
+    if (i % 8 === 4) tone(440, t, step * 2, 'square', 0.05);
+    stepN++; musicT += step; n++;
+  }
+}
+const sfx = {
+  tap() { if (!actx) return; tone(880, actx.currentTime, 0.05, 'square', 0.22); },
+  drop() { if (!actx) return; noise(actx.currentTime, 0.06, 0.28, 1800); tone(320, actx.currentTime, 0.07, 'square', 0.18); },
+  land() { if (!actx) return; const t = actx.currentTime; tone(523, t, 0.07, 'square', 0.28); tone(784, t + 0.04, 0.08, 'square', 0.2); },
+  slice() { if (!actx) return; noise(actx.currentTime, 0.09, 0.32, 2400); },
+  perfect() {
+    if (!actx) return;
+    const t = actx.currentTime;
+    [659, 880, 1318].forEach((f, i) => tone(f, t + i * 0.045, 0.1, 'square', 0.26));
+  },
+  miss() { if (!actx) return; tone(130, actx.currentTime, 0.16, 'triangle', 0.4); tone(70, actx.currentTime, 0.22, 'sine', 0.35); },
+  over() { if (!actx) return; [587, 494, 392, 294].forEach((f, i) => tone(f, actx.currentTime + i * 0.1, 0.14, 'triangle', 0.28)); },
+  best() { if (!actx) return; [784, 988, 1175, 1568].forEach((f, i) => tone(f, actx.currentTime + 0.35 + i * 0.06, 0.09, 'square', 0.24)); },
+};
+
+const keys = {};
+let dropEdge = false, hidden = false;
+const touchMode = () => document.body.classList.contains('touch');
+function setMuteLabel() {
+  const b = document.getElementById('bm');
+  if (!b) return;
+  b.textContent = muted ? 'MUTED' : 'SOUND ON';
+  b.setAttribute('aria-label', muted ? 'Muted' : 'Sound on');
+}
+function setDropLabel() {
+  const b = document.getElementById('bd');
+  if (!b || !S) return;
+  const label = S.state === 'play' ? 'DROP' : (S.state === 'over' ? 'AGAIN' : 'START');
+  if (b.textContent !== label) b.textContent = label;
+  b.setAttribute('aria-label', label.toLowerCase());
+}
+addEventListener('keydown', e => {
+  initAudio();
+  if (['Space', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  if (e.repeat) return;
+  keys[e.code] = true;
+  if (e.code === 'KeyM') {
+    muted = !muted;
+    setMuteLabel();
+    if (master) master.gain.value = muted ? 0 : MASTER_VOL;
+    if (!muted) sfx.tap();
+    return;
+  }
+  if (e.code === 'KeyL') {
+    try { window.dispatchEvent(new CustomEvent('wagbi:leaderboard-open')); } catch (_) {}
+    return;
+  }
+  if (e.code === 'Space' || e.code === 'Enter') dropEdge = true;
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+document.addEventListener('visibilitychange', () => { hidden = document.hidden; });
+function bindDrop(el) {
+  if (!el) return;
+  const down = e => {
+    e.preventDefault(); e.stopPropagation();
+    initAudio();
+    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    el.classList.add('on');
+    dropEdge = true;
+  };
+  const up = e => { e.preventDefault(); el.classList.remove('on'); };
+  el.addEventListener('pointerdown', down);
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointercancel', up);
+  el.addEventListener('lostpointercapture', up);
+  el.addEventListener('contextmenu', e => e.preventDefault());
+}
+bindDrop(document.getElementById('bd'));
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  initAudio();
+  try { cv.focus(); } catch (_) {}
+  dropEdge = true;
+});
+cv.addEventListener('contextmenu', e => e.preventDefault());
+const muteBtn = document.getElementById('bm');
+if (muteBtn) muteBtn.addEventListener('pointerdown', e => {
+  e.preventDefault(); e.stopPropagation();
+  initAudio();
+  muted = !muted;
+  setMuteLabel();
+  if (master) master.gain.value = muted ? 0 : MASTER_VOL;
+});
+document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
+document.addEventListener('gestureend', e => e.preventDefault(), { passive: false });
+addEventListener('wheel', e => { if (e.ctrlKey || e.metaKey) e.preventDefault(); }, { passive: false });
+addEventListener('dblclick', e => e.preventDefault());
+let lastTouchEnd = 0;
+addEventListener('touchend', e => {
+  const now = Date.now();
+  if (now - lastTouchEnd < 320) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+if (('ontouchstart' in window) || (window.matchMedia && matchMedia('(pointer: coarse)').matches)) document.body.classList.add('touch');
+addEventListener('touchstart', () => document.body.classList.add('touch'), { once: true, passive: true });
+
+function resize() {
+  const s0 = Math.min(innerWidth / W, innerHeight / H);
+  let s = s0;
+  if (s >= 2 && Math.floor(s) / s > 0.84) s = Math.floor(s);
+  cv.style.width = Math.floor(W * s) + 'px';
+  cv.style.height = Math.floor(H * s) + 'px';
+}
+addEventListener('resize', resize); resize();
+
+let best = 0;
+try { best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0; } catch (_) {}
+function saveBest() { try { localStorage.setItem(BEST_KEY, String(best)); } catch (_) {} }
+
+const stars = [];
+{
+  let s = 42;
+  const rr = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  for (let i = 0; i < 46; i++) stars.push({ x: (rr() * W) | 0, y: (rr() * 78) | 0, b: rr() > 0.82 });
+}
+const BLDGS = [
+  { x: 0, w: 26, h: 72, spire: 0 },
+  { x: 22, w: 18, h: 98, spire: 12 },
+  { x: 38, w: 20, h: 60, spire: 0 },
+  { x: 54, w: 16, h: 84, spire: 8 },
+  { x: 198, w: 18, h: 88, spire: 10 },
+  { x: 214, w: 24, h: 112, spire: 16 },
+  { x: 236, w: 16, h: 68, spire: 0 },
+  { x: 250, w: 20, h: 94, spire: 0 },
+  { x: 268, w: 18, h: 76, spire: 8 },
+  { x: 284, w: 36, h: 54, spire: 0 },
+];
+const CLOUDS = [
+  { x: 78, y: 5, k: 0 },
+  { x: 156, y: 14, k: 1 },
+  { x: 236, y: 7, k: 2 },
+];
+let winPulse = 0, winPulseX = 0, winPulseY = 0;
+let bannerCanvas = null;
+
+function fresh() {
+  return {
+    state: 'title', t: 0, score: 0, shake: 0, flash: 0,
+    newBest: false, missT: 0, clock: 0,
+  };
+}
+let S = fresh();
+let runStart = 0;
+let runBest = best;
+let blocks = [];
+let scraps = [];
+let parts = [];
+let floats = [];
+let camY = PAD_H, targetCam = PAD_H;
+let mode = 'swing';
+let pos = 0.12, dir = 1;
+let mover = null;
+let demoPos = 0.15, demoDir = 1;
+
+function stackTop() {
+  const b = blocks[blocks.length - 1];
+  return b.y + b.h;
+}
+function nextW() {
+  const t = blocks[blocks.length - 1];
+  return t.kind === 'pad' ? START_W : t.w;
+}
+function toY(worldY) {
+  return Math.round(STACK_SCREEN + (camY - worldY));
+}
+function swingSpeed() {
+  return Math.min(220, 86 + S.score * 8);
+}
+function blockLeft(w) {
+  const span = Math.max(8, W - 16 - w);
+  return Math.round(8 + Math.max(0, Math.min(1, pos)) * span);
+}
+function advanceSwing(dt) {
+  const w = nextW();
+  const span = Math.max(8, W - 16 - w);
+  pos += dir * swingSpeed() * dt / span;
+  if (pos >= 1) { pos = 1; dir = -1; }
+  if (pos <= 0) { pos = 0; dir = 1; }
+}
+function resetSite() {
+  const padX = Math.round((W - PAD_W) / 2);
+  blocks = [{ x: padX, y: 0, w: PAD_W, h: PAD_H, kind: 'pad', flash: 0 }];
+  scraps = []; parts = []; floats = [];
+  camY = targetCam = PAD_H;
+  mode = 'swing';
+  pos = 0.08; dir = 1;
+  mover = null;
+}
+function startGame() {
+  const keep = best;
+  S = fresh();
+  best = keep;
+  S.state = 'play';
+  runBest = best;
+  window.WAGBI_RESULT = null;
+  runStart = Date.now();
+  resetSite();
+  sfx.tap();
+}
+function gameOver() {
+  if (S.state === 'over') return;
+  S.state = 'over';
+  S.t = 0;
+  const previousBest = runBest;
+  const ms = runStart ? Math.max(0, Date.now() - runStart) : 0;
+  // Dispatch before updating device best: the bridge compares the old best.
+  try { window.dispatchEvent(new CustomEvent('wagbi:gameover', { detail: { score: S.score, ms, previousBest } })); } catch (_) {}
+  S.newBest = S.score > best;
+  if (S.score > best) { best = S.score; saveBest(); sfx.best(); }
+  sfx.over();
+  runStart = 0;
+}
+function makePad() {
+  return { x: Math.round((W - PAD_W) / 2), y: 0, w: PAD_W, h: PAD_H, kind: 'pad', flash: 0 };
+}
+function pushLogo(x, w) {
+  const y = stackTop();
+  blocks.push({ x, y, w, h: BH, kind: 'logo', flash: 0 });
+}
+function burst(wx, wy) {
+  for (let i = 0; i < 14; i++) {
+    const a = rnd() * Math.PI * 2, v = 18 + rnd() * 46;
+    parts.push({
+      wx, wy, vx: Math.cos(a) * v, vy: Math.sin(a) * v + 30,
+      life: 0.35 + rnd() * 0.28, col: i % 3 === 0 ? '#ffe14a' : (i % 2 ? '#ffffff' : '#9eb6ff'),
+    });
+  }
+  if (parts.length > 80) parts.splice(0, parts.length - 80);
+}
+function release() {
+  const w = nextW();
+  mover = { x: blockLeft(w), wy: camY + GAP, w, vy: 20 };
+  mode = 'fall';
+  sfx.drop();
+}
+function land() {
+  const support = blocks[blocks.length - 1];
+  const mw = mover.w, mx = mover.x;
+  const x1 = Math.max(mx, support.x);
+  const x2 = Math.min(mx + mw, support.x + support.w);
+  const ow = x2 - x1;
+  const top = support.y + support.h;
+  if (ow < 3) {
+    mode = 'miss';
+    S.missT = 0;
+    mover.wy = top;
+    sfx.miss();
+    S.shake = Math.max(S.shake, 0.16);
+    return;
+  }
+  const overhang = mw - ow;
+  const full = overhang <= PERFECT_TOL;
+  let px0, pw;
+  if (full) {
+    pw = mw;
+    if (support.kind === 'pad') px0 = support.x + Math.round((support.w - mw) / 2);
+    else px0 = support.x;
+    if (px0 < support.x) px0 = support.x;
+    if (px0 + pw > support.x + support.w) px0 = support.x + support.w - pw;
+    S.shake = 0.34;
+    S.flash = 0.1;
+    winPulse = 0.34;
+    winPulseX = px0 + pw / 2;
+    winPulseY = top + BH / 2;
+    sfx.perfect();
+    burst(px0 + pw / 2, top + BH / 2);
+    floats.push({ wx: px0 + pw / 2, wy: top + BH + 2, text: 'PERFECT', life: 0.7, max: 0.7 });
+  } else {
+    px0 = x1; pw = ow;
+    if (mx < x1) scraps.push({ x: mx, wy: top, w: x1 - mx, h: BH, vy: 10, vx: -22, life: 30 });
+    if (mx + mw > x2) scraps.push({ x: x2, wy: top, w: mx + mw - x2, h: BH, vy: 10, vx: 22, life: 30 });
+    sfx.land();
+    sfx.slice();
+  }
+  blocks.push({ x: px0, y: top, w: pw, h: BH, kind: 'logo', flash: full ? 0.2 : 0.08 });
+  S.score++;
+  targetCam = stackTop();
+  mode = 'rise';
+  mover = null;
+}
+function update(dt) {
+  S.clock += dt;
+  S.t += dt;
+  if (S.shake > 0) S.shake = Math.max(0, S.shake - dt);
+  if (S.flash > 0) S.flash = Math.max(0, S.flash - dt);
+  if (winPulse > 0) winPulse = Math.max(0, winPulse - dt);
+  for (const b of blocks) if (b.flash > 0) b.flash = Math.max(0, b.flash - dt);
+  for (const s of scraps) {
+    s.vy += 1200 * dt;
+    s.wy -= s.vy * dt;
+    s.x += s.vx * dt;
+    s.life -= dt;
+  }
+  scraps = scraps.filter(s => toY(s.wy) < H + 48 && s.x > -90 && s.x < W + 90);
+  for (const p of parts) {
+    p.vy -= 280 * dt;
+    p.wx += p.vx * dt;
+    p.wy += p.vy * dt;
+    p.life -= dt;
+  }
+  parts = parts.filter(p => p.life > 0);
+  for (const f of floats) f.life -= dt;
+  floats = floats.filter(f => f.life > 0);
+
+  if (S.state === 'title') advanceSwing(dt);
+
+  if (dropEdge) {
+    dropEdge = false;
+    if (S.state === 'title' && mode === 'swing') {
+      S.state = 'play';
+      runBest = best;
+      window.WAGBI_RESULT = null;
+      runStart = Date.now();
+      release();
+    } else if (S.state === 'over' && S.t > 0.4) startGame();
+    else if (S.state === 'play' && mode === 'swing' && Math.abs(camY - targetCam) < 0.6) release();
+  }
+
+  if (S.state === 'play' || mode === 'miss' || mode === 'fall') {
+    if (mode === 'swing' || mode === 'rise') advanceSwing(dt);
+    if (mode === 'rise' && Math.abs(camY - targetCam) < 0.45) mode = 'swing';
+    if (mode === 'fall' && mover) {
+      mover.vy += 1100 * dt;
+      mover.wy -= mover.vy * dt;
+      if (mover.wy <= stackTop()) land();
+    }
+    if (mode === 'miss' && mover) {
+      mover.vy += 1100 * dt;
+      mover.wy -= mover.vy * dt;
+      S.missT += dt;
+      if (S.state === 'play' && S.missT > 0.16) gameOver();
+      if (toY(mover.wy) > H + 30) mover = null;
+    }
+  }
+  const diff = targetCam - camY;
+  camY += diff * Math.min(1, dt * 11);
+}
+
+function altitude() {
+  return Math.max(0, Math.min(1, (camY - PAD_H) / 520));
+}
+function winState(wx, wy) {
+  const n = ((wx * 13 + wy * 17) >>> 0) % 10;
+  const on = (camY + 10 >= wy && n < 7) || n < 2;
+  if (winPulse > 0) {
+    const dx = wx - winPulseX, dy = wy - winPulseY;
+    if (dx * dx + dy * dy < 120 * 120 && Math.abs(dy) < 36) return 2;
+  }
+  return on ? 1 : 0;
+}
+function drawSky() {
+  const alt = altitude();
+  for (let y = 0; y < H; y += 2) {
+    const t = y / H;
+    const r = (3 * (1 - alt)) | 0;
+    const g = ((5 + t * 16) * (1 - alt) + (1 + t * 3) * alt) | 0;
+    const b = ((24 + t * 108) * (1 - alt) + (8 + t * 20) * alt) | 0;
+    px(0, y, W, 2, 'rgb(' + r + ',' + g + ',' + Math.min(160, b) + ')');
+  }
+  const par = Math.round(camY * 0.15);
+  const starCol = alt > 0.45 ? '#d5e0ff' : '#8ea0d0';
+  for (const s of stars) {
+    let y = s.y - (par % 90);
+    if (y < 0) y += 90;
+    if (y > H - 16) continue;
+    if (((S.clock * 3 + s.x) | 0) % 8 === 0 && !s.b && alt < 0.55) continue;
+    px(s.x, y, s.b ? 2 : 1, s.b ? 2 : 1, s.b ? '#e7eeff' : starCol);
+    if (alt > 0.4) {
+      const y2 = (y + 47) % (H - 10);
+      px((s.x * 3) % W, y2, 1, 1, '#9eb0e0');
+    }
+  }
+  const rects = avoidRects();
+  drawBuildings(rects);
+  for (const c of CLOUDS) {
+    if (alt > 0.72 && c.k !== 0) continue;
+    const rise = Math.max(0, camY - PAD_H);
+    const x = c.x + Math.round(rise * 0.03);
+    const y = c.y + ((Math.round(rise * 0.04) + c.k * 3) % 14);
+    if (overlaps(x, y, 30, 8, rects)) continue;
+    px(x + 4, y, 14, 3, '#b7c4e2');
+    px(x, y + 2, 26, 3, '#d5def4');
+    px(x + 8, y + 4, 10, 2, '#eef3ff');
+  }
+}
+function cutSpans(spans, x0, x1) {
+  const out = [];
+  for (const sp of spans) {
+    if (x1 <= sp[0] || x0 >= sp[1]) { out.push(sp); continue; }
+    if (x0 > sp[0]) out.push([sp[0], x0]);
+    if (x1 < sp[1]) out.push([x1, sp[1]]);
+  }
+  return out;
+}
+function drawBuildings(rects) {
+  for (const b of BLDGS) {
+    const top = toY(b.h);
+    const base = toY(0);
+    if (base < 0 || top > H) continue;
+    const col = b.spire ? '#070b20' : '#050716';
+    const y0 = top < 0 ? 0 : top;
+    const y1 = base > H ? H : base;
+    for (let y = y0; y < y1; y++) {
+      let spans = [[b.x, b.x + b.w]];
+      for (const r of rects) {
+        if (y < r[1] || y >= r[1] + r[3]) continue;
+        spans = cutSpans(spans, r[0], r[0] + r[2]);
+        if (!spans.length) break;
+      }
+      for (const sp of spans) if (sp[1] > sp[0]) px(sp[0], y, sp[1] - sp[0], 1, col);
+    }
+    if (b.spire) {
+      const sx = b.x + (b.w >> 1) - 1;
+      const spY = top - b.spire;
+      if (!overlaps(sx, spY, 2, b.spire + 2, rects)) {
+        if (top > 0) px(sx, spY, 2, b.spire, '#141848');
+        if (((S.clock * 3) | 0) % 2 === 0 && spY > 0 && spY < H) px(sx, spY, 2, 2, '#ff4455');
+      }
+    }
+    for (let wy = 6; wy < b.h - 3; wy += 7) {
+      const sy = toY(wy);
+      if (sy < 1 || sy > H - 3) continue;
+      for (let wx = b.x + 3; wx <= b.x + b.w - 5; wx += 5) {
+        if (overlaps(wx, sy, 2, 3, rects)) continue;
+        const st = winState(wx, wy);
+        px(wx, sy, 2, 3, st === 2 ? '#ffffff' : st === 1 ? '#ffe14a' : '#161a3e');
+      }
+    }
+  }
+}
+function overlaps(x, y, w, h, rects) {
+  for (let i = 0; i < rects.length; i++) {
+    const r = rects[i];
+    if (x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1]) return true;
+  }
+  return false;
+}
+function avoidRects() {
+  const r = [];
+  for (const b of blocks) {
+    const y = toY(b.y + b.h);
+    const pad = b.kind === 'pad' ? 8 : 4;
+    r.push([b.x - pad, y - pad, b.w + pad * 2, b.h + pad * 2]);
+  }
+  if (mode === 'swing') {
+    const w = nextW();
+    const x = blockLeft(w);
+    const y = STACK_SCREEN - GAP - BH;
+    r.push([x - 5, y - 8, w + 10, BH + 12]);
+    const tx = x + (w >> 1);
+    r.push([tx - 3, GANTRY_Y, 7, Math.max(6, y - GANTRY_Y)]);
+  } else if (mover) {
+    const y = toY(mover.wy + BH);
+    r.push([mover.x - 5, y - 6, mover.w + 10, BH + 12]);
+  }
+  for (const sc of scraps) r.push([(sc.x | 0) - 2, toY(sc.wy + sc.h) - 2, (sc.w | 0) + 4, sc.h + 4]);
+  r.push([0, 0, 38, GANTRY_Y + 2]);
+  r.push([0, GANTRY_Y - 1, W, 8]);
+  if (S.state === 'play') r.push([180, 0, 140, 30]);
+  if (S.state === 'over') r.push([40, 2, 240, 82]);
+  if (S.state === 'title') {
+    r.push([40, 0, 240, 48]);
+    r.push([62, 130, 196, 36]);
+    r.push([0, 160, 150, 20]);
+    r.push([190, 160, 130, 20]);
+  }
+  return r;
+}
+function drawScaffold(rects) {
+  const bays = [108, 228];
+  const yFloor = Math.min(H, toY(0));
+  for (const x of bays) {
+    for (let y = 76; y < yFloor; y += 4) {
+      if (overlaps(x, y, 14, 4, rects)) continue;
+      px(x, y, 2, 4, '#7d8798');
+      px(x + 9, y, 2, 4, '#7d8798');
+      px(x + 1, y, 1, 4, '#d5dce8');
+      if (((y - 76) / 4 | 0) % 5 === 0) {
+        px(x, y, 11, 2, '#c5cedc');
+        px(x + 2, y + 2, 7, 1, '#3a4254');
+      }
+    }
+  }
+}
+function drawFarCrane(rects) {
+  const x = 304;
+  const yTop = toY(104);
+  const yBot = Math.min(H, toY(0));
+  const y0 = yTop < 0 ? 0 : yTop;
+  for (let y = y0; y < yBot; y += 5) {
+    if (overlaps(x, y, 3, 5, rects)) continue;
+    px(x, y, 2, 5, '#3c4b7a');
+    px(x, y, 1, 5, '#aeb8dc');
+  }
+  if (yTop > -4 && yTop < H && !overlaps(x - 26, yTop, 40, 4, rects)) {
+    px(x - 26, yTop, 40, 2, '#3c4b7a');
+    px(x - 26, yTop, 40, 1, '#c5cdee');
+    px(x + 6, yTop + 2, 1, 8, '#aeb8dc');
+  }
+}
+function buildBanner() {
+  if (bannerCanvas || !img.font || !img.font.complete) return;
+  const lines = ['WE ALL GOTTA', 'BUILD IT'];
+  const c = document.createElement('canvas');
+  c.width = 12 * 8 + 6;
+  c.height = 22;
+  const x = c.getContext('2d');
+  x.imageSmoothingEnabled = false;
+  x.fillStyle = '#0000ff';
+  x.fillRect(0, 0, c.width, c.height);
+  x.fillStyle = '#07071c';
+  x.fillRect(1, 1, c.width - 2, c.height - 2);
+  const paint = (str, ox, oy, col) => {
+    const f = fontFor(col);
+    for (let i = 0; i < str.length; i++) {
+      const k = str.charCodeAt(i) - 32;
+      if (k > 0 && k < 95) x.drawImage(f, k * 8, 0, 8, 8, ox + i * 8, oy, 8, 8);
+    }
+  };
+  paint(lines[0], 3, 3, '#ffffff');
+  paint(lines[1], 3 + 16, 12, '#ffe14a');
+  bannerCanvas = c;
+}
+function drawBanner(rects) {
+  buildBanner();
+  if (!bannerCanvas) return;
+  const rise = Math.max(0, camY - PAD_H);
+  let scale = Math.max(0.25, 1 - rise / 480);
+  scale = Math.round(scale * 4) / 4;
+  const bw = Math.max(1, Math.round(bannerCanvas.width * scale));
+  const bh = Math.max(1, Math.round(bannerCanvas.height * scale));
+  let y = Math.round(78 + Math.min(52, rise * 0.12));
+  if (y + bh > H - 6) y = H - 6 - bh;
+  const spots = [6, W - bw - 6, 8];
+  let x = -1;
+  for (const sx of spots) {
+    if (sx < 0 || sx + bw > W) continue;
+    if (!overlaps(sx, y, bw, bh, rects)) { x = sx; break; }
+  }
+  if (x < 0) return;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(bannerCanvas, x, y, bw, bh);
+}
+function drawGround() {
+  const gy = toY(0);
+  if (gy >= H) return;
+  const y0 = Math.max(0, gy);
+  px(0, y0, W, H - y0, '#10121c');
+  // decking fills the pit under the pad so the bottom is a site, not a void
+  for (let wy = -8; wy > -240; wy -= 14) {
+    const y = toY(wy);
+    if (y < y0 - 2 || y > H) continue;
+    px(0, y, W, 4, '#2c2418');
+    px(0, y, W, 1, '#5a4630');
+    px(0, y + 3, W, 1, '#1a140e');
+    for (let x = (wy * 3) & 31; x < W; x += 28) px(x, y, 1, 4, '#1a140e');
+  }
+  if (gy >= 0 && gy < H) px(0, gy, W, 2, '#0000aa');
+  drawBeam(18, 32);
+  drawBeam(246, 36);
+  drawCone(58);
+  drawCone(98);
+  drawCone(214);
+  drawCone(292);
+  const pit = [[12, -22], [78, -36], [196, -24], [304, -40], [36, -58], [260, -62], [150, -78], [8, -96], [300, -110]];
+  for (const [wx, wy] of pit) {
+    const y = toY(wy);
+    if (y < y0 || y > H - 2) continue;
+    if (S.state === 'title' && y > 156) continue;
+    px(wx + 2, y, 2, 2, '#ffe14a');
+    px(wx + 1, y + 2, 4, 2, '#ff9a1a');
+    px(wx, y + 4, 6, 2, '#ffe14a');
+    px(wx, y + 6, 6, 2, '#2a2a2a');
+  }
+}
+function drawBeam(wx, len) {
+  const y = toY(5);
+  if (y > H || y < -8) return;
+  px(wx, y, len, 4, '#4c5568');
+  px(wx, y, len, 1, '#e4eaf6');
+  px(wx, y + 3, len, 1, '#2a3140');
+  for (let i = 0; i < len; i += 6) px(wx + i, y, 1, 4, '#2a3140');
+}
+function drawCone(wx) {
+  const y = toY(8);
+  if (y > H || y < -8) return;
+  px(wx + 2, y, 2, 2, '#ffe14a');
+  px(wx + 1, y + 2, 4, 2, '#ff9a1a');
+  px(wx, y + 4, 6, 2, '#ffe14a');
+  px(wx, y + 6, 6, 2, '#2a2a2a');
+}
+function drawPad(b) {
+  const x = b.x, y = toY(b.y + b.h), h = b.h, w = b.w;
+  px(x + 8, y + h, 5, 18, '#2c3140');
+  px(x + w - 13, y + h, 5, 18, '#2c3140');
+  px(x, y, w, h, '#1a1d2a');
+  for (let i = 0; i < w; i += 8) {
+    px(x + i, y, 4, 4, '#ffe14a');
+    px(x + i + 4, y, 4, 4, '#141414');
+  }
+  px(x, y + h - 3, w, 3, '#0000ff');
+  px(x, y + h - 1, w, 1, '#6a8cff');
+}
+function drawLogo(x, y, w, h, hot) {
+  if (w < 1 || h < 1) return;
+  x |= 0; y |= 0; w |= 0; h |= 0;
+  const src = img.base;
+  if (!src || !src.complete || !src.naturalWidth) return;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, x, y, w, h);
+  if (hot) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.45;
+    ctx.drawImage(src, x, y, w, h);
+    ctx.restore();
+  }
+}
+function drawGantry() {
+  px(0, GANTRY_Y, W, 5, '#8d95a8');
+  px(0, GANTRY_Y, W, 1, '#e4e9f4');
+  px(0, GANTRY_Y + 4, W, 1, '#3c4352');
+  px(0, GANTRY_Y + 2, W, 1, '#5e6778');
+  // cab post under the cat, stops above the hook path
+  px(6, GANTRY_Y + 5, 3, 14, '#5c6578');
+  px(28, GANTRY_Y + 5, 3, 14, '#5c6578');
+  px(4, GANTRY_Y + 17, 28, 3, '#3a4254');
+}
+function drawHook(x, y, w) {
+  const tx = (x + (w >> 1)) | 0;
+  if (tx > 40) {
+    px(tx - 7, GANTRY_Y - 2, 14, 7, '#c5ccd8');
+    px(tx - 7, GANTRY_Y - 2, 14, 1, '#fff');
+    px(tx - 5, GANTRY_Y + 3, 3, 3, '#222');
+    px(tx + 2, GANTRY_Y + 3, 3, 3, '#222');
+  }
+  const y0 = tx < 38 ? GANTRY_Y + 6 : GANTRY_Y + 5;
+  if (y > y0) px(tx, y0, 1, y - y0, '#d5dbe6');
+  px(tx - 3, y - 3, 7, 3, '#ffe14a');
+  px(tx - 1, y - 1, 3, 2, '#c9a020');
+}
+function drawCat(x, y) {
+  const im = img.doji;
+  if (!im || !im.complete || !im.naturalWidth) return;
+  const w = im.naturalWidth, h = im.naturalHeight;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.translate((x | 0) + w, y | 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(im, 0, 0);
+  ctx.restore();
+  ctx.imageSmoothingEnabled = false;
+}
+function plate(s, right, y, col) {
+  const w = s.length * 8;
+  const x = right - w;
+  px(x - 2, y - 1, w + 4, 10, '#05061a');
+  text(s, right, y, col, '#000022', 'right', 1);
+}
+function drawWorld() {
+  drawSky();
+  const rects = avoidRects();
+  drawScaffold(rects);
+  drawFarCrane(rects);
+  drawBanner(rects);
+  drawGround();
+  for (const b of blocks) {
+    if (b.kind === 'pad') drawPad(b);
+    else drawLogo(b.x, toY(b.y + b.h), b.w, b.h, b.flash > 0);
+  }
+  for (const s of scraps) {
+    drawLogo(Math.round(s.x), toY(s.wy + s.h), s.w | 0, s.h, false);
+  }
+  drawGantry();
+  if (mode === 'swing') {
+    const w = nextW();
+    const x = blockLeft(w);
+    const y = STACK_SCREEN - GAP - BH;
+    drawHook(x, y, w);
+    drawLogo(x, y, w, BH, false);
+  } else if (mover && (mode === 'fall' || mode === 'miss')) {
+    const y = toY(mover.wy + BH);
+    drawLogo(mover.x, y, mover.w, BH, false);
+  }
+  drawCat(2, GANTRY_Y - 27);
+  for (const p of parts) {
+    const x = Math.round(p.wx), y = toY(p.wy);
+    px(x, y, 2, 2, p.col);
+  }
+  for (const f of floats) {
+    const y = toY(f.wy) - Math.round((1 - f.life / f.max) * 12);
+    text(f.text, f.wx, y, '#ffe14a', '#1a1400', 'center', 1);
+  }
+}
+function panel(x, y, w, h) {
+  px(x, y, w, h, '#0000ff');
+  px(x + 2, y + 2, w - 4, h - 4, '#07071c');
+}
+function drawTitleCard() {
+  panel(42, 2, 236, 44);
+  text('WAGBi STACKER', W / 2, 6, '#ffffff', '#000033', 'center', 2);
+  text('ON BASE', W / 2, 24, '#8ecbff', '#001433', 'center', 1);
+  const blink = Math.sin(S.clock * 5) > -0.15;
+  text(touchMode() ? 'TAP TO START' : 'PRESS SPACE', W / 2, 34, blink ? '#ffffff' : '#9aa6c8', '#000022', 'center', 1);
+  // Short how-to. Sits under the swinging load and above the footer.
+  panel(64, 132, 192, 32);
+  text('DROP THE BASE MARK', W / 2, 136, '#ffffff', '#000022', 'center', 1);
+  text('OVERHANG IS SLICED', W / 2, 146, '#8ecbff', '#001433', 'center', 1);
+  text('MISS CLOSES THE SITE', W / 2, 156, '#ffe14a', '#1a1400', 'center', 1);
+  px(6, 169, 5, 5, '#0000ff');
+  text('doji.base.eth', 14, 168, '#ffffff', '#000022', 'left', 1);
+  text('BEST ' + best, 314, 168, '#ffe14a', '#1a1400', 'right', 1);
+}
+function drawOver() {
+  const showNew = S.newBest;
+  const y0 = 6;
+  panel(48, y0, 224, showNew ? 84 : 70);
+  text('GAME OVER', W / 2, y0 + 4, '#ffffff', '#000033', 'center', 2);
+  const s1 = 'SCORE ' + S.score;
+  const s2 = 'BEST ' + (window.WAGBI_RESULT ? window.WAGBI_RESULT.best : best);
+  const gap = 16;
+  const tw = s1.length * 8 + gap + s2.length * 8;
+  let x = Math.round((W - tw) / 2);
+  text(s1, x, y0 + 24, '#ffffff', '#000022', 'left', 1);
+  text(s2, x + s1.length * 8 + gap, y0 + 24, '#ffe14a', '#1a1400', 'left', 1);
+  let y = y0 + 38;
+  if (showNew) {
+    text('NEW BEST', W / 2, y, '#ffe14a', '#1a1400', 'center', 1);
+    y += 14;
+  }
+  text(window.WAGBI_RESULT ? window.WAGBI_RESULT.line : 'PRACTICE / NOT RANKED', W / 2, y, '#8ecbff', '#001433', 'center', 1);
+  y += 14;
+  const blink = Math.sin(S.clock * 5) > -0.15;
+  text('PLAY AGAIN', W / 2, y, blink ? '#ffffff' : '#9aa6c8', '#000022', 'center', 1);
+}
+function drawPlayHud() {
+  plate('SCORE ' + S.score, 314, 4, '#ffffff');
+  plate('BEST ' + best, 314, 16, '#ffe14a');
+}
+function drawFlash() {
+  if (S.flash <= 0) return;
+  px(0, 0, W, 2, '#ffffff');
+  px(0, H - 2, W, 2, '#ffffff');
+  px(0, 0, 2, H, '#ffffff');
+  px(W - 2, 0, 2, H, '#ffffff');
+}
+function draw() {
+  ctx.imageSmoothingEnabled = false;
+  const mag = S.shake > 0 ? S.shake * 8 : 0;
+  const ox = mag ? Math.round(Math.sin(S.clock * 90) * mag) : 0;
+  const oy = mag ? Math.round(Math.cos(S.clock * 77) * mag) : 0;
+  ctx.setTransform(1, 0, 0, 1, ox, oy);
+  drawWorld();
+  if (S.state === 'title') drawTitleCard();
+  else if (S.state === 'play') drawPlayHud();
+  else if (S.state === 'over') drawOver();
+  drawFlash();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  setDropLabel();
+}
+
+function setupShot() {
+  if (SHOT === 'title') {
+    resetSite();
+    S.state = 'title';
+    pos = 0.48;
+    dir = 1;
+    S.clock = 1.2;
+    return;
+  }
+  if (SHOT !== 'play' && SHOT !== 'over') return;
+  resetSite();
+  const cuts = [[150, 16], [151, 15], [149, 14], [150, 12]];
+  for (const [x, w] of cuts) pushLogo(x, w);
+  S.state = 'play';
+  S.score = 4;
+  best = Math.max(best, 9);
+  camY = targetCam = stackTop();
+  pos = 0.78; dir = -1; mode = 'swing';
+  scraps.push({ x: 132, wy: 20, w: 4, h: BH, vy: 30, vx: -16, life: 0.9 });
+  if (SHOT === 'over') {
+    pushLogo(151, 11);
+    pushLogo(152, 10);
+    S.score = 6;
+    camY = targetCam = stackTop();
+    S.state = 'over';
+    S.t = 1;
+    S.newBest = true;
+    best = 6;
+    mode = 'miss';
+    mover = { x: 36, wy: 40, w: 10, vy: 80 };
+    S.clock = 0.2;
+    scraps.length = 0;
+  }
+}
+
+let last = 0;
+function frame(now) {
+  const dt = Math.min(0.034, last ? (now - last) / 1000 : 0.016);
+  last = now;
+  if (!hidden && !SHOT) update(dt);
+  draw();
+  window.__shotReady = true;
+  if (!SHOT) musicTick();
+  requestAnimationFrame(frame);
+}
+loadAll(() => {
+  try { cv.focus(); } catch (_) {}
+  resetSite();
+  setupShot();
+  requestAnimationFrame(frame);
+});
+window.__wagbi = { get state() { return S.state; }, get score() { return S.score; } };
+})();
+
+</script>
+<script>
+/* WAGBi Stacker board, using the shared same-origin verse bridge. */
+(() => {
+  const api = (path) => path;
+  const tgHere = () => {
+    try { return (window.Telegram && window.Telegram.WebApp) || null; } catch (_) { return null; }
+  };
+  const initData = () => {
+    const here = tgHere();
+    if (here && here.initData) return here.initData;
+    try {
+      if (window.parent && window.parent !== window) {
+        const pt = window.parent.Telegram && window.parent.Telegram.WebApp;
+        if (pt && pt.initData) return pt.initData;
+      }
+    } catch (_) {}
+    return "";
+  };
+  try { const tg = tgHere(); if (tg) { tg.ready(); tg.expand(); tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } } catch (_) {}
+  const board = document.getElementById("wboard");
+  const rowsEl = document.getElementById("wboard-rows");
+  const emptyEl = document.getElementById("wboard-empty");
+  const youEl = document.getElementById("wboard-you");
+  const statusEl = document.getElementById("wboard-status");
+  const titleEl = document.getElementById("wboard-title");
+  const tabAll = document.getElementById("wboard-tab-all");
+  const tabWeek = document.getElementById("wboard-tab-week");
+  let fontImg = null;
+  let fontState = "wait";
+  const tintCache = {};
+  function ensureFont() {
+    if (fontState === "ok") return Promise.resolve(fontImg);
+    if (fontState === "fail") return Promise.resolve(null);
+    const src = window.WAGBI_ASSETS && window.WAGBI_ASSETS.font;
+    if (!src) { fontState = "fail"; return Promise.resolve(null); }
+    return new Promise((res) => {
+      const i = new Image();
+      i.onload = () => { fontImg = i; fontState = "ok"; res(i); };
+      i.onerror = () => { fontState = "fail"; res(null); };
+      i.src = src;
+    });
+  }
+  function tinted(col) {
+    if (!fontImg || fontImg === true) return null;
+    if (tintCache[col]) return tintCache[col];
+    const c = document.createElement("canvas");
+    c.width = fontImg.width; c.height = 8;
+    const x = c.getContext("2d");
+    x.imageSmoothingEnabled = false;
+    x.drawImage(fontImg, 0, 0);
+    x.globalCompositeOperation = "source-in";
+    x.fillStyle = col;
+    x.fillRect(0, 0, c.width, 8);
+    return (tintCache[col] = c);
+  }
+  function glyphScale() {
+    const cv = document.getElementById("c");
+    const cw = (cv && cv.clientWidth) || 320;
+    const inner = Math.min(cw - 28, window.innerWidth - 36);
+    return Math.max(2, Math.min(3, Math.floor(inner / 168) || 2));
+  }
+  function pix(str, col, scale) {
+    const s = String(str);
+    const c = document.createElement("canvas");
+    c.width = Math.max(scale, s.length * 8 * scale + scale);
+    c.height = 8 * scale + scale;
+    c.setAttribute("aria-hidden", "true");
+    const x = c.getContext("2d");
+    x.imageSmoothingEnabled = false;
+    const src = tinted(col);
+    const sh = tinted("#000033");
+    if (!src) return c;
+    const draw = (im, ox, oy) => {
+      for (let i = 0; i < s.length; i++) {
+        const k = s.charCodeAt(i) - 32;
+        if (k > 0 && k < 95) x.drawImage(im, k * 8, 0, 8, 8, i * 8 * scale + ox, oy, 8 * scale, 8 * scale);
+      }
+    };
+    if (sh) draw(sh, scale, scale);
+    draw(src, 0, 0);
+    return c;
+  }
+  function medal(rank, scale) {
+    const face = rank === 1 ? "#ffe14a" : rank === 2 ? "#e4ebff" : "#ffb27a";
+    const rim = rank === 1 ? "#a07810" : rank === 2 ? "#6e7890" : "#8a4010";
+    const c = document.createElement("canvas");
+    c.width = 8 * scale; c.height = 8 * scale;
+    c.setAttribute("aria-hidden", "true");
+    const x = c.getContext("2d");
+    x.imageSmoothingEnabled = false;
+    const px = (x0, y0, w, h, color) => { x.fillStyle = color; x.fillRect(x0 * scale, y0 * scale, w * scale, h * scale); };
+    px(2, 0, 4, 1, rim); px(1, 1, 6, 1, rim); px(0, 2, 8, 4, rim); px(1, 6, 6, 1, rim); px(2, 7, 4, 1, rim);
+    px(2, 1, 4, 1, face); px(1, 2, 6, 4, face); px(2, 6, 4, 1, face);
+    px(3, 3, 2, 2, "#07071c");
+    return c;
+  }
+  const cleanName = (s) => {
+    const t = String(s || "PLAYER").replace(/\$/g, "").replace(/[^\x20-\x7e]/g, "").replace(/\s+/g, " ").trim();
+    return (t || "PLAYER").slice(0, 10).toUpperCase();
+  };
+  const cleanScore = (n) => {
+    const v = Number(String(n == null ? "" : n).replace(/[$,\s]/g, ""));
+    if (!Number.isFinite(v)) return "0";
+    return String(Math.max(0, Math.round(v)));
+  };
+  const rowsOf = (a) => (Array.isArray(a) ? a : []).slice(0, 10).map((r, i) => ({
+    rank: r.rank || i + 1, name: cleanName(r.name), score: cleanScore(r.score), me: !!r.me
+  }));
+  const playerOf = (block) => {
+    if (!block || !block.player) return null;
+    const p = block.player;
+    const best = p.best != null ? p.best : p.score;
+    if (p.rank == null && best == null) return null;
+    return { rank: p.rank || 0, best: cleanScore(best == null ? 0 : best) };
+  };
+  const shortNote = (note) => {
+    const n = String(note || "");
+    const low = n.toLowerCase();
+    if (!n) return "";
+    if (low.includes("saving")) return "SAVING";
+    if (low.includes("loading")) return "LOADING";
+    if (low.includes("practice") && low.includes("not ranked")) return "PRACTICE NOT RANKED";
+    if (low.includes("practice")) return "OPEN FROM THE BOT";
+    if (low.includes("offline") && low.includes("not saved")) return "OFFLINE NOT SAVED";
+    if (low.includes("offline")) return "BOARD OFFLINE";
+    if (low.includes("session")) return "REOPEN FROM THE BOT";
+    if (low.includes("too fast")) return "TOO FAST";
+    if (low.includes("rejected")) return "SCORE REJECTED";
+    if (low.includes("not saved")) return "NOT SAVED";
+    if (low.includes("your rank") || low === "score saved") return "SCORE SAVED";
+    return n.toUpperCase().replace(/\$/g, "").replace(/[^A-Z0-9 .#]/g, "").trim().slice(0, 22);
+  };
+  let view = "all";
+  let last = null;
+  let paintGen = 0;
+  function place() {
+    const cv = document.getElementById("c");
+    if (!cv) return;
+    board.style.width = Math.max(220, Math.min(cv.clientWidth - 4, window.innerWidth - 12)) + "px";
+  }
+  function paint() {
+    if (!last) return;
+    if (fontState !== "ok") {
+      if (fontState === "fail") return;
+      ensureFont().then(() => paint());
+      return;
+    }
+    const scale = glyphScale();
+    place();
+    const tab = view === "week" ? "week" : "all";
+    tabAll.classList.toggle("on", tab === "all");
+    tabWeek.classList.toggle("on", tab === "week");
+    tabAll.setAttribute("aria-selected", tab === "all" ? "true" : "false");
+    tabWeek.setAttribute("aria-selected", tab === "week" ? "true" : "false");
+    titleEl.replaceChildren(pix("WAGBI BOARD", "#ffffff", scale));
+    tabAll.replaceChildren(pix("ALL TIME", tab === "all" ? "#ffffff" : "#8ecbff", scale));
+    tabWeek.replaceChildren(pix("WEEK", tab === "week" ? "#ffffff" : "#8ecbff", scale));
+    const rows = last[tab];
+    let you = tab === "week" ? last.youWeek : last.youAll;
+    if (!you) {
+      const mine = rows.find((r) => r.me);
+      if (mine) you = { rank: mine.rank, best: mine.score };
+    }
+    const offline = /OFFLINE|NOT SAVED|REJECTED|TOO FAST|REOPEN/.test(last.note);
+    rowsEl.replaceChildren();
+    if (!rows.length) {
+      emptyEl.hidden = false;
+      const a = document.createElement("div");
+      const b = document.createElement("div");
+      if (last.note === "LOADING" || last.note === "SAVING") {
+        a.append(pix(last.note, "#ffe14a", scale));
+        emptyEl.replaceChildren(a);
+        emptyEl.dataset.msg = last.note;
+      } else if (offline || /BOT|PRACTICE/.test(last.note)) {
+        a.append(pix(last.note || "NO SCORES YET", "#ffb0b0", scale));
+        const line = tab === "week" ? "NO SCORES THIS WEEK" : "NO SCORES YET";
+        if (!offline) {
+          a.replaceChildren(pix(line, "#ffe14a", scale));
+          b.append(pix(last.note, "#8ecbff", scale));
+          emptyEl.replaceChildren(a, b);
+          emptyEl.dataset.msg = line + ". " + last.note;
+        } else {
+          emptyEl.replaceChildren(a);
+          emptyEl.dataset.msg = last.note;
+        }
+      } else {
+        const line = tab === "week" ? "NO SCORES THIS WEEK" : "NO SCORES YET";
+        a.append(pix(line, "#ffe14a", scale));
+        b.append(pix("BE THE FIRST", "#8ecbff", scale));
+        emptyEl.replaceChildren(a, b);
+        emptyEl.dataset.msg = line + ". BE THE FIRST";
+      }
+    } else {
+      emptyEl.hidden = true;
+      emptyEl.replaceChildren();
+      delete emptyEl.dataset.msg;
+      for (const r of rows) {
+        const mine = r.me || (!!you && you.rank === r.rank);
+        const row = document.createElement("div");
+        row.className = mine ? "wr me" : "wr";
+        const rankCol = r.rank === 1 ? "#ffe14a" : r.rank === 2 ? "#e4ebff" : r.rank === 3 ? "#ffb27a" : "#9aa6c8";
+        const nameCol = mine ? "#ffe14a" : "#ffffff";
+        const scoreCol = mine ? "#ffe14a" : "#8ecbff";
+        if (r.rank <= 3) row.append(medal(r.rank, scale));
+        else {
+          const gap = document.createElement("span");
+          gap.style.cssText = "flex:none;display:block;width:" + (8 * scale) + "px";
+          row.append(gap);
+        }
+        const lab = document.createElement("span");
+        lab.append(pix(String(r.rank).padStart(2, " "), rankCol, scale));
+        const nm = document.createElement("span");
+        nm.className = "nm";
+        nm.append(pix(r.name, nameCol, scale));
+        const sc = document.createElement("span");
+        sc.className = "sc";
+        sc.append(pix(r.score, scoreCol, scale));
+        const sr = document.createElement("span");
+        sr.className = "sr";
+        const placeName = r.rank === 1 ? "1st" : r.rank === 2 ? "2nd" : r.rank === 3 ? "3rd" : "rank " + r.rank;
+        sr.textContent = placeName + " " + r.name + " " + r.score + (mine ? " you" : "");
+        row.append(lab, nm, sc, sr);
+        rowsEl.append(row);
+      }
+    }
+    const showYou = !!(you && (you.rank || Number(you.best) > 0));
+    if (showYou) {
+      youEl.hidden = false;
+      const left = document.createElement("span");
+      const right = document.createElement("span");
+      left.append(pix(you.rank ? "YOU #" + you.rank : "YOU", "#ffe14a", scale));
+      right.append(pix("BEST " + you.best, "#ffe14a", scale));
+      const sr = document.createElement("span");
+      sr.className = "sr";
+      sr.textContent = "Your score " + you.best + (you.rank ? ", rank " + you.rank : "");
+      youEl.replaceChildren(left, right, sr);
+    } else {
+      youEl.hidden = true;
+      youEl.replaceChildren();
+    }
+    const skipStatus = !last.note || last.note === "LOADING" || last.note === "SAVING" || (!rows.length && (offline || /BOT|PRACTICE/.test(last.note)));
+    if (skipStatus) {
+      statusEl.hidden = true;
+      statusEl.replaceChildren();
+    } else {
+      statusEl.hidden = false;
+      const col = last.note === "SCORE SAVED" ? "#ffe14a" : "#8ecbff";
+      statusEl.replaceChildren(pix(last.note, col, scale));
+    }
+  }
+  const show = (d, note) => {
+    const gen = ++paintGen;
+    const allBlock = d.all_time || {};
+    const weekBlock = d.weekly || {};
+    last = {
+      all: rowsOf((allBlock.top10) || d.top10 || []),
+      week: rowsOf(weekBlock.top10 || []),
+      youAll: playerOf(allBlock.player ? allBlock : { player: d.player }),
+      youWeek: playerOf(weekBlock),
+      note: shortNote(note)
+    };
+    board.hidden = false;
+    ensureFont().then(() => { if (gen === paintGen) paint(); });
+  };
+  const readJson = async (r) => { try { return JSON.parse(await r.text()); } catch (_) { return {}; } };
+  let seq = 0;
+  async function refresh(note) {
+    const run = ++seq;
+    const data = initData();
+    const headers = data ? { "X-Telegram-Init-Data": data } : {};
+    if (!data && VerseBoard.launchToken()) headers["X-Verse-Launch-Token"] = VerseBoard.launchToken();
+    try {
+      const r = await fetch(api("/api/verse-leaderboard?game=wagbi"), { headers, cache: "no-store" });
+      if (!r.ok) throw new Error("http " + r.status);
+      const d = await readJson(r);
+      if (run !== seq) return;
+      try { if (d.weekly && d.weekly.player) sessionStorage.setItem("verse_wb_wagbi", String(d.weekly.player.best)); } catch (_) {}
+      const idle = "";
+      show(d, note || idle);
+    } catch (_) {
+      if (run === seq) show({}, note || "Leaderboard offline");
+    }
+  }
+  window.addEventListener("wagbi:leaderboard-open", () => {
+    if (!board.hidden) { board.hidden = true; return; }
+    show(last ? { all_time: { top10: last.all, player: last.youAll }, weekly: { top10: last.week, player: last.youWeek } } : {}, "Loading...");
+    refresh();
+  });
+  const pickTab = (which) => (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    view = which;
+    if (last) { paintGen++; paint(); }
+  };
+  tabAll.addEventListener("pointerdown", pickTab("all"));
+  tabWeek.addEventListener("pointerdown", pickTab("week"));
+  window.addEventListener("wagbi:gameover", (ev) => {
+    const detail = ev.detail || {};
+    const run = ++seq;
+    const result = VerseBoard.finish({ game: "wagbi", score: detail.score,
+      ms: detail.ms, previousBest: detail.previousBest });
+    window.WAGBI_RESULT = result;
+    result.done.then(() => {
+      if (run !== seq || board.hidden) return;
+      show(result.board || {}, result.line);
+    });
+  });
+  const stop = (e) => { e.stopPropagation(); };
+  const lbBtn = document.getElementById("wlb");
+  lbBtn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent("wagbi:leaderboard-open"));
+  });
+  document.getElementById("wboard-x").addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    board.hidden = true;
+  });
+  board.addEventListener("pointerdown", stop);
+  ["pointerup", "touchstart", "touchend", "click"].forEach((t) => board.addEventListener(t, stop));
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "Escape" && !board.hidden) board.hidden = true;
+  });
+  addEventListener("resize", () => { if (!board.hidden && last) paint(); });
+})();
+</script>
+</body>
+</html>

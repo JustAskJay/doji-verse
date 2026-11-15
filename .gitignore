@@ -1,0 +1,21 @@
+# local / deploy config — never commit
+.deploy-*.json
+*.env
+.env*
+*.key
+*.pem
+secrets*
+
+# backups and work files
+*.pre-*.html
+*.bak
+*_bak*
+
+# tooling and test output
+node_modules/
+shots/
+review*/
+*.mp4
+*.npy
+*.log
+.DS_Store

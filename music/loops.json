@@ -1,0 +1,38 @@
+{
+ "hq-88f-morning": {
+  "intro": 2.7273,
+  "loopStart": 5.7273,
+  "loopEnd": 27.5454,
+  "dur": 27.5454
+ },
+ "elevator-going-up": {
+  "intro": 3.0508,
+  "loopStart": 6.0508,
+  "loopEnd": 22.322,
+  "dur": 22.322
+ },
+ "wallst-closing-bell": {
+  "intro": 3.8095,
+  "loopStart": 6.8095,
+  "loopEnd": 37.2857,
+  "dur": 37.2857
+ },
+ "cab-meters-running": {
+  "intro": 3.1579,
+  "loopStart": 6.1579,
+  "loopEnd": 31.4211,
+  "dur": 31.4211
+ },
+ "breakdown-engines-out": {
+  "intro": 3.3333,
+  "loopStart": 6.3333,
+  "loopEnd": 33.0,
+  "dur": 33.0
+ },
+ "drive-westbound-360": {
+  "intro": 3.2143,
+  "loopStart": 6.2143,
+  "loopEnd": 40.5,
+  "dur": 40.5
+ }
+}
